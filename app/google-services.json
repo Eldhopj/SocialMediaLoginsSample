@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "264776030907",
+    "firebase_url": "https://socialmedialogins-77588.firebaseio.com",
+    "project_id": "socialmedialogins-77588",
+    "storage_bucket": "socialmedialogins-77588.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:264776030907:android:570b4e457dd781bb",
+        "android_client_info": {
+          "package_name": "com.eldhopj.socialmedialogins"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "264776030907-ph5i33p3r4ega0nsj5dejb8b83i6vtjj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.eldhopj.socialmedialogins",
+            "certificate_hash": "86877c3b08ce5d439562a2dae851d9015c4b081d"
+          }
+        },
+        {
+          "client_id": "264776030907-q1ghtddm0i0dimajf9hlslbp1p2pir9g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqAbsheWm3Se4z7xeTn2-GqjF6IDmBApU"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "264776030907-q1ghtddm0i0dimajf9hlslbp1p2pir9g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
