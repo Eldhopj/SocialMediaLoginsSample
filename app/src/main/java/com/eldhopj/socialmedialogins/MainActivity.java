@@ -8,6 +8,13 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
+import com.facebook.AccessToken;
+import com.facebook.CallbackManager;
+import com.facebook.FacebookCallback;
+import com.facebook.FacebookException;
+import com.facebook.FacebookSdk;
+import com.facebook.login.LoginResult;
+import com.facebook.login.widget.LoginButton;
 import com.google.android.gms.auth.api.Auth;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
@@ -20,7 +27,9 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FacebookAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
 
 public class MainActivity extends AppCompatActivity {
@@ -29,6 +38,10 @@ private SignInButton signInButton;
 private static final int RC_SIGN_IN =1;
 private GoogleApiClient mGoogleApiClient;
     private FirebaseAuth mAuth;
+
+
+    //Facebook
+    CallbackManager mCallbackManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,8 +52,51 @@ private GoogleApiClient mGoogleApiClient;
         mAuth = FirebaseAuth.getInstance();
 
        googleSignIn();
+       facebookSignIn();
+     //  hashKey();
     }
 
+    //------------------------Commons------------------------------//
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (mAuth.getCurrentUser() != null) {
+            profileActivityIntent();
+        }
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+
+        if (requestCode == RC_SIGN_IN) {
+            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+            try {
+                GoogleSignInAccount account = task.getResult(ApiException.class);
+                // Google Sign In was successful, authenticate with Firebase
+                firebaseAuthWithGoogle(account);
+            } catch (ApiException e) {
+                // Google Sign In failed, update UI appropriately
+                Log.w(TAG, "Google sign in failed", e);
+                // ...
+            }
+
+            mCallbackManager.onActivityResult(requestCode, resultCode, data);
+        }
+
+        //Facebook onActivity result
+        if (FacebookSdk.isFacebookRequestCode(requestCode)){
+            mCallbackManager.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+
+    private void profileActivityIntent(){
+        Intent intent = new Intent(getApplicationContext(),ProfileActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+    }
 
     //---------------------------------------Google Sign------------------------//
     private void googleSignIn(){
@@ -58,14 +114,6 @@ private GoogleApiClient mGoogleApiClient;
                 signIn();
             }
         });
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        if (mAuth.getCurrentUser() != null) {
-            profileActivityIntent();
-        }
     }
 
 
@@ -86,24 +134,6 @@ private GoogleApiClient mGoogleApiClient;
                 .build();
     }
 
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-
-        if (requestCode == RC_SIGN_IN) {
-            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
-            try {
-                GoogleSignInAccount account = task.getResult(ApiException.class);
-                // Google Sign In was successful, authenticate with Firebase
-                firebaseAuthWithGoogle(account);
-            } catch (ApiException e) {
-                // Google Sign In failed, update UI appropriately
-                Log.w(TAG, "Google sign in failed", e);
-                // ...
-            }
-        }
-    }
 
     private void firebaseAuthWithGoogle(GoogleSignInAccount account) {
         AuthCredential credential = GoogleAuthProvider.getCredential(account.getIdToken(), null);
@@ -127,11 +157,85 @@ private GoogleApiClient mGoogleApiClient;
     }
 
     //---------------------------------Facebook SignIn----------------------------------//
+    /**
+     * Follow the steps <a href https://firebase.google.com/docs/auth/android/facebook-login />
+     *
+     * Get App ID and an App Secret from <a href https://developers.facebook.com/ > </a>
+     *
+     * copy the "OAuth redirect URI" from firebase and paste it into Facebook , Products -> Facebook login -> Settings -> Valid OAuth Redirect URIs
+     *
+     * Follow the steps <a href https://developers.facebook.com/docs/facebook-login/android />
+     * Generating HashKey in Linux : <a href https://stackoverflow.com/questions/33073463/generating-release-key-hash-in-linux-osubuntu-android-facebook-sdk /> */
 
-    private void profileActivityIntent(){
-        Intent intent = new Intent(getApplicationContext(),ProfileActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
+
+
+    private void facebookSignIn() {
+        mCallbackManager = CallbackManager.Factory.create(); // The bridge between facebook and our app for passing info's
+        LoginButton loginButton = findViewById(R.id.facebook_login_button);
+        loginButton.setReadPermissions("email", "public_profile"); // We can ask many more permission like DOB,Image ect....
+        loginButton.registerCallback(mCallbackManager, new FacebookCallback<LoginResult>() {
+            @Override
+            public void onSuccess(LoginResult loginResult) {
+                Log.d(TAG, "User ID: " +
+                        loginResult.getAccessToken().getUserId() + "\n" +
+                        "Auth Token: " + loginResult.getAccessToken().getToken());
+                Toast.makeText(MainActivity.this, loginResult.getAccessToken().toString(), Toast.LENGTH_SHORT).show();
+                handleFacebookAccessToken(loginResult.getAccessToken()); // Getting the access token from facebook
+            }
+
+            @Override
+            public void onCancel() {
+                Log.d(TAG, "facebook:onCancel");
+            }
+
+            @Override
+            public void onError(FacebookException error) {
+                Log.d(TAG, "facebook:onError", error);
+
+            }
+        });
     }
+
+    private void handleFacebookAccessToken(AccessToken token) {
+        Log.d(TAG, "handleFacebookAccessToken:" + token);
+
+        AuthCredential credential = FacebookAuthProvider.getCredential(token.getToken());
+        mAuth.signInWithCredential(credential)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
+                            // Sign in success, update UI with the signed-in user's information
+                            Log.d(TAG, "signInWithCredential:success");
+                            FirebaseUser user = mAuth.getCurrentUser();
+                            profileActivityIntent();
+                        } else {
+                            // If sign in fails, display a message to the user.
+
+                            Toast.makeText(getApplicationContext(), "Authentication failed."+ task.getException().getLocalizedMessage(), Toast.LENGTH_SHORT).show();
+                        }
+
+                        // ...
+                    }
+                });
+    }
+
+//    private void hashKey(){
+//        try {
+//            PackageInfo info = getApplication().getPackageManager().getPackageInfo(
+//                    getPackageName(),
+//                    PackageManager.GET_SIGNATURES);
+//            for (Signature signature : info.signatures) {
+//                MessageDigest md = MessageDigest.getInstance("SHA");
+//                md.update(signature.toByteArray());
+//                Log.d("KeyHash", "KeyHash:" + Base64.encodeToString(md.digest(),
+//                        Base64.DEFAULT));
+//            }
+//        } catch (PackageManager.NameNotFoundException e) {
+//
+//        } catch (NoSuchAlgorithmException e) {
+//
+//        }
+//    }
 
 }
