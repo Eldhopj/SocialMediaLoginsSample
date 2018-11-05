@@ -31,6 +31,16 @@ import com.google.firebase.auth.FacebookAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
+import com.google.firebase.auth.TwitterAuthProvider;
+import com.twitter.sdk.android.core.Callback;
+import com.twitter.sdk.android.core.DefaultLogger;
+import com.twitter.sdk.android.core.Result;
+import com.twitter.sdk.android.core.Twitter;
+import com.twitter.sdk.android.core.TwitterAuthConfig;
+import com.twitter.sdk.android.core.TwitterConfig;
+import com.twitter.sdk.android.core.TwitterException;
+import com.twitter.sdk.android.core.TwitterSession;
+import com.twitter.sdk.android.core.identity.TwitterLoginButton;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -43,9 +53,15 @@ private GoogleApiClient mGoogleApiClient;
     //Facebook
     CallbackManager mCallbackManager;
 
+    //Twitter
+    TwitterLoginButton mLoginButton;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        //Twitter configuration
+        twitterConfig();
         setContentView(R.layout.activity_main);
 
         signInButton = findViewById(R.id.googleSign);
@@ -53,6 +69,7 @@ private GoogleApiClient mGoogleApiClient;
 
        googleSignIn();
        facebookSignIn();
+       twitterSignIn();
      //  hashKey();
     }
 
@@ -88,6 +105,10 @@ private GoogleApiClient mGoogleApiClient;
         //Facebook onActivity result
         if (FacebookSdk.isFacebookRequestCode(requestCode)){
             mCallbackManager.onActivityResult(requestCode, resultCode, data);
+        }
+
+        if(requestCode == TwitterAuthConfig.DEFAULT_AUTH_REQUEST_CODE) {
+            mLoginButton.onActivityResult(requestCode, resultCode, data);
         }
     }
 
@@ -216,6 +237,64 @@ private GoogleApiClient mGoogleApiClient;
                         }
 
                         // ...
+                    }
+                });
+    }
+
+
+    //----------------------------------Twitter Login------------------------------//
+
+    private void twitterConfig() {
+        TwitterConfig config = new TwitterConfig.Builder(this)
+                .logger(new DefaultLogger(Log.DEBUG))
+                .twitterAuthConfig(new TwitterAuthConfig(getString(R.string.twitter_consumer_key),
+                        getString(R.string.twitter_consumer_secret)))
+                .debug(true)
+                .build();
+        Twitter.initialize(config);
+    }
+
+    private void twitterSignIn(){
+
+        /**Follow the steps in <a href https://firebase.google.com/docs/auth/android/twitter-login/>
+         * Upgrade into java 8*/
+
+            mLoginButton = findViewById(R.id.buttonTwitterLogin);
+            mLoginButton.setCallback(new Callback<TwitterSession>() {
+                @Override
+                public void success(Result<TwitterSession> result) {
+                    Log.d(TAG, "twitterLogin:success" + result);
+                    handleTwitterSession(result.data);
+                }
+
+                @Override
+                public void failure(TwitterException exception) {
+                    Log.d(TAG, "Twitter login failure: "+ exception.getLocalizedMessage());
+                }
+            });
+        }
+
+
+    private void handleTwitterSession(TwitterSession session) {
+        Log.d(TAG, "handleTwitterSession:" + session);
+
+        AuthCredential credential = TwitterAuthProvider.getCredential(
+                session.getAuthToken().token,
+                session.getAuthToken().secret);
+
+        mAuth.signInWithCredential(credential)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
+                            // Sign in success, update UI with the signed-in user's information
+                            Log.d(TAG, "signInWithCredential:success");
+                            FirebaseUser user = mAuth.getCurrentUser();
+                            profileActivityIntent();
+                        } else {
+                            // If sign in fails, display a message to the user.
+                            Toast.makeText(getApplicationContext(), "Authentication failed."+ task.getException().getLocalizedMessage(), Toast.LENGTH_SHORT).show();
+                        }
                     }
                 });
     }
